@@ -1,0 +1,66 @@
+<body>
+  <h1>Skin Disease Detector</h1>
+  <div id="webcam-container"></div>
+  <div id="label-container">Prediction: ...</div>
+  <button id="start-button">Start Camera</button>
+
+  <!-- ✅ Load libraries first -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image"></script>
+
+  <!-- ✅ Then run your app logic -->
+  <script>
+    const URL = "./";
+
+    let model, webcam, maxPredictions;
+    const startButton = document.getElementById("start-button");
+    const labelContainer = document.getElementById("label-container");
+    const webcamContainer = document.getElementById("webcam-container");
+
+    startButton.addEventListener("click", init);
+
+    async function init() {
+      startButton.disabled = true;
+      labelContainer.innerText = "Loading model...";
+
+      try {
+        model = await tmImage.load(URL + "model.json", URL + "metadata.json");
+        maxPredictions = model.getTotalClasses();
+      } catch (error) {
+        labelContainer.innerText = "❌ Error loading model files.";
+        console.error("Model loading error:", error);
+        startButton.disabled = false;
+        return;
+      }
+
+      try {
+        webcam = new tmImage.Webcam(320, 320, true);
+        await webcam.setup();
+        await webcam.play();
+
+        webcamContainer.innerHTML = "";
+        webcamContainer.appendChild(webcam.canvas);
+
+        labelContainer.innerText = "Camera started. Detecting...";
+        window.requestAnimationFrame(loop);
+      } catch (error) {
+        labelContainer.innerText = "❌ Cannot access webcam.";
+        console.error("Webcam error:", error);
+        startButton.disabled = false;
+      }
+    }
+
+    async function loop() {
+      webcam.update();
+      await predict();
+      window.requestAnimationFrame(loop);
+    }
+
+    async function predict() {
+      const predictions = await model.predict(webcam.canvas);
+      predictions.sort((a, b) => b.probability - a.probability);
+      const top = predictions[0];
+      labelContainer.innerText = `Prediction: ${top.className} (${(top.probability * 100).toFixed(2)}%)`;
+    }
+  </script>
+</body>
